@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}TomatoMind — About{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h2 class="mb-2">ℹ️ About TomatoMind</h2>
+    <p class="text-muted mb-4">Learn about this project, the technology stack, and the dataset.</p>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5>🎯 Project Overview</h5>
+                    <p>TomatoMind is an intelligent movie analytics web application built on the Rotten Tomatoes dataset. It combines <strong>machine learning</strong> and <strong>data visualization</strong> to provide:</p>
+                    <ul>
+                        <li><strong>Sentiment Analysis</strong> — Classify movie reviews as Positive or Negative using NLP</li>
+                        <li><strong>Movie Recommendation</strong> — Discover similar movies via collaborative filtering</li>
+                        <li><strong>Data Dashboard</strong> — Interactive charts exploring movie trends</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5>🔧 Technology Stack</h5>
+                    <div class="row mt-3">
+                        <div class="col-sm-6">
+                            <h6 class="text-tomato">Backend</h6>
+                            <ul>
+                                <li><strong>Python</strong> — Core language</li>
+                                <li><strong>Flask</strong> — Web framework & REST API</li>
+                                <li><strong>Pandas & NumPy</strong> — Data processing</li>
+                                <li><strong>Scikit-learn</strong> — Machine learning (TF-IDF + Logistic Regression)</li>
+                            </ul>
+                        </div>
+                        <div class="col-sm-6">
+                            <h6 class="text-tomato">Frontend</h6>
+                            <ul>
+                                <li><strong>HTML5 + CSS3</strong> — Page structure & styling</li>
+                                <li><strong>Bootstrap 5</strong> — Responsive UI framework</li>
+                                <li><strong>Chart.js</strong> — Interactive data charts</li>
+                                <li><strong>JavaScript (Vanilla)</strong> — Client-side logic</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5>🧠 Models</h5>
+                    <div class="row mt-3">
+                        <div class="col-sm-6">
+                            <h6>Sentiment Model</h6>
+                            <ul>
+                                <li>TF-IDF vectorization (5000 features)</li>
+                                <li>Logistic Regression classifier</li>
+                                <li>Binary: Fresh → Positive, Rotten → Negative</li>
+                                <li>Training data: 100K sampled reviews</li>
+                            </ul>
+                        </div>
+                        <div class="col-sm-6">
+                            <h6>Recommendation Model</h6>
+                            <ul>
+                                <li>Item-based Collaborative Filtering</li>
+                                <li>Cosine similarity between movies</li>
+                                <li>User-item matrix from critic reviews</li>
+                                <li>Filters cold-start users & movies (&lt; 5 reviews)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5>📦 Dataset</h5>
+                    <p>The Rotten Tomatoes dataset from Kaggle contains:</p>
+                    <table class="table table-sm">
+                        <tr><td>Movies</td><td><strong>17,713</strong></td></tr>
+                        <tr><td>Critic Reviews</td><td><strong>1,130,017</strong></td></tr>
+                        <tr><td>Fresh Reviews</td><td><strong>~700K</strong></td></tr>
+                        <tr><td>Rotten Reviews</td><td><strong>~400K</strong></td></tr>
+                        <tr><td>Top Critics</td><td><strong>~115K reviews</strong></td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4 bg-light">
+                <div class="card-body">
+                    <h5>📋 Course Info</h5>
+                    <p class="small text-muted">This project was built as a course assignment demonstrating full-stack web development with machine learning integration.</p>
+                    <p class="small text-muted mb-0"><strong>System Architecture:</strong> Data Layer → Model Layer → API Layer → Web Layer → User</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

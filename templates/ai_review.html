@@ -1,0 +1,479 @@
+{% extends "base.html" %}
+{% block title %}AI Review Generator — TomatoMind{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ─── page layout ─── */
+  .review-app {
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    gap: 24px;
+    align-items: start;
+    min-height: 70vh;
+  }
+  @media (max-width: 900px) {
+    .review-app { grid-template-columns: 1fr; }
+  }
+
+  /* ─── style cards ─── */
+  .style-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .style-card {
+    cursor: pointer;
+    border: 2px solid #eee;
+    border-radius: 16px;
+    padding: 14px 8px;
+    text-align: center;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    background: white;
+    position: relative;
+    overflow: hidden;
+  }
+  .style-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+  }
+  .style-card.selected {
+    border-color: #e74c3c;
+    background: linear-gradient(135deg, #fff5f5 0%, #fff 100%);
+    box-shadow: 0 0 0 4px rgba(231, 76, 60, 0.1);
+  }
+  .style-card .emoji { font-size: 28px; margin-bottom: 4px; display: block; }
+  .style-card .name { font-weight: 700; font-size: 13px; color: #2d3436; }
+  .style-card .sub { font-size: 10px; color: #999; }
+
+  /* ─── sentiment slider ─── */
+  .sentiment-slider-wrap {
+    position: relative;
+  }
+  .sentiment-slider {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 10px;
+    border-radius: 5px;
+    background: linear-gradient(to right, #e74c3c 0%, #f39c12 30%, #95a5a6 50%, #2ecc71 70%, #27ae60 100%);
+    outline: none;
+    cursor: pointer;
+  }
+  .sentiment-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid #2d3436;
+    cursor: grab;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.2);
+    transition: transform 0.15s;
+  }
+  .sentiment-slider::-webkit-slider-thumb:active { transform: scale(1.2); cursor: grabbing; }
+  .sentiment-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 11px;
+    color: #999;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .sentiment-value {
+    text-align: center;
+    font-weight: 800;
+    font-size: 14px;
+    margin-top: 2px;
+    transition: color 0.3s;
+  }
+
+  /* ─── input area ─── */
+  .input-panel {
+    position: sticky;
+    top: 20px;
+  }
+  .input-panel .card {
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 2px 20px rgba(0,0,0,0.06);
+  }
+  .form-control {
+    border: 2px solid #eee;
+    border-radius: 14px;
+    padding: 12px 16px;
+    font-size: 14px;
+    transition: all 0.2s;
+    background: #fafafa;
+  }
+  .form-control:focus {
+    border-color: #e74c3c;
+    background: white;
+    box-shadow: 0 0 0 4px rgba(231, 76, 60, 0.06);
+  }
+  .form-label {
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #555;
+    margin-bottom: 6px;
+  }
+
+  /* ─── generate button ─── */
+  .btn-generate {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    color: white;
+    font-weight: 800;
+    font-size: 16px;
+    letter-spacing: 0.5px;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-generate:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(231, 76, 60, 0.35);
+  }
+  .btn-generate:active { transform: translateY(0); }
+  .btn-generate:disabled {
+    background: #ccc;
+    transform: none;
+    box-shadow: none;
+  }
+  .btn-generate .sparkle {
+    display: inline-block;
+    transition: transform 0.3s;
+  }
+  .btn-generate:hover .sparkle { transform: rotate(15deg) scale(1.2); }
+
+  /* ─── output panel ─── */
+  .output-panel {
+    min-height: 400px;
+  }
+  .output-panel .card {
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 2px 20px rgba(0,0,0,0.06);
+    min-height: 400px;
+  }
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    color: #ccc;
+  }
+  .empty-state .icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    animation: float 3s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  .empty-state p { color: #999; font-size: 14px; }
+
+  /* ─── review text ─── */
+  .review-text {
+    line-height: 2;
+    font-size: 15px;
+    color: #2d3436;
+    white-space: pre-wrap;
+  }
+  .review-text::first-letter {
+    font-size: 3em;
+    font-weight: 900;
+    float: left;
+    line-height: 0.8;
+    margin-right: 8px;
+    margin-top: 2px;
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .review-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .review-meta-tag {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    background: #fff5f5;
+    color: #e74c3c;
+    margin-right: 6px;
+  }
+
+  /* ─── copy button ─── */
+  .btn-copy {
+    padding: 8px 18px;
+    border-radius: 12px;
+    border: 2px solid #eee;
+    background: white;
+    font-weight: 600;
+    font-size: 13px;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .btn-copy:hover {
+    background: #fafafa;
+    border-color: #ddd;
+  }
+  .btn-copy.copied {
+    background: #27ae60;
+    border-color: #27ae60;
+    color: white;
+  }
+
+  /* ─── typing indicator (shown while generating) ─── */
+  .typing-dots { display: flex; gap: 6px; padding: 20px; }
+  .typing-dots span {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #e74c3c;
+    animation: bounce 1.2s ease-in-out infinite;
+  }
+  .typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-12px); opacity: 1; }
+  }
+
+  /* ─── character count badge ─── */
+  .char-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #f0f0f0;
+    color: #666;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 1100px;">
+
+  <div class="text-center mb-4">
+    <h2 class="fw-bold" style="font-size: 28px;">
+      <span style="background: linear-gradient(135deg, #e74c3c, #c0392b); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">AI Review Generator</span>
+    </h2>
+    <p class="text-muted" style="font-size: 14px;">Drop a quick thought. Pick a vibe. Get a review ready to post.</p>
+  </div>
+
+  <div class="review-app">
+
+    <!-- ═══ LEFT PANEL: Input ═══ -->
+    <div class="input-panel">
+      <div class="card">
+        <div class="card-body p-4">
+
+          <!-- Movie Name -->
+          <div class="mb-3">
+            <label class="form-label">Movie Name</label>
+            <input type="text" id="movieName" class="form-control"
+                   placeholder="e.g. Inception / Dune / Parasite"
+                   autocomplete="off">
+          </div>
+
+          <!-- Short Feeling -->
+          <div class="mb-3">
+            <label class="form-label">Your Quick Take</label>
+            <textarea id="shortFeeling" class="form-control" rows="2"
+                      placeholder="e.g. Mind-bending visuals, but the third act loses steam. Acting is solid throughout."
+                      style="resize: none;"></textarea>
+            <div class="form-text" style="font-size: 11px; margin-top: 4px;">
+              Mention aspects like &ldquo;acting&rdquo;, &ldquo;plot&rdquo;, &ldquo;visuals&rdquo;, or &ldquo;music&rdquo; for better results.
+            </div>
+          </div>
+
+          <!-- Style Picker -->
+          <div class="mb-3">
+            <label class="form-label">Pick a Vibe</label>
+            <div class="style-grid" id="stylePicker">
+              {% for key, bank in styles.items() %}
+              <div class="style-card" data-style="{{ key }}" onclick="selectStyle('{{ key }}')">
+                <span class="emoji">
+                  {% if key == 'hype' %}🔥{% elif key == 'roast' %}😈{% elif key == 'analysis' %}🔬{% else %}🌙{% endif %}
+                </span>
+                <span class="name">{{ bank.name }}</span>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- Sentiment Slider -->
+          <div class="mb-4">
+            <label class="form-label d-flex justify-content-between">
+              <span>Sentiment Balance</span>
+              <span id="sentimentLabel" style="color: #2ecc71; font-weight: 800;">70% Positive</span>
+            </label>
+            <div class="sentiment-slider-wrap">
+              <input type="range" class="sentiment-slider" id="sentimentSlider"
+                     min="0" max="100" value="70"
+                     oninput="updateSentiment(this.value)">
+            </div>
+            <div class="sentiment-labels">
+              <span>Negative</span><span>Mixed</span><span>Positive</span>
+            </div>
+          </div>
+
+          <!-- Generate Button -->
+          <button id="generateBtn" class="btn-generate" onclick="generateReview()">
+            <span class="sparkle">✨</span> Generate Review
+          </button>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ RIGHT PANEL: Output ═══ -->
+    <div class="output-panel">
+      <div class="card">
+        <div class="card-body p-4">
+
+          <!-- Empty State -->
+          <div id="emptyState" class="empty-state">
+            <div class="icon">🍿</div>
+            <p style="font-weight: 600; color: #bbb;">Your review will appear here</p>
+            <p style="font-size: 12px;">Fill in the form on the left and hit generate</p>
+          </div>
+
+          <!-- Loading State -->
+          <div id="loadingState" style="display: none;" class="text-center py-5">
+            <div class="typing-dots" style="justify-content: center;">
+              <span></span><span></span><span></span>
+            </div>
+            <p class="text-muted mt-3" style="font-size: 13px;">Writing your review...</p>
+          </div>
+
+          <!-- Result State -->
+          <div id="resultState" style="display: none;">
+            <div class="review-header">
+              <div>
+                <span class="review-meta-tag" id="resultStyle"></span>
+                <span class="review-meta-tag" id="resultSentiment" style="background: #f0fdf4; color: #16a34a;"></span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span id="charCount" class="char-badge"></span>
+                <button class="btn-copy" id="copyBtn" onclick="copyReview()">Copy</button>
+              </div>
+            </div>
+            <div class="review-text" id="reviewResult"></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  let selectedStyle = 'hype';
+
+  function selectStyle(style) {
+    selectedStyle = style;
+    document.querySelectorAll('.style-card').forEach(c => c.classList.remove('selected'));
+    document.querySelector(`[data-style="${style}"]`).classList.add('selected');
+  }
+
+  function updateSentiment(val) {
+    const pct = parseInt(val);
+    const label = document.getElementById('sentimentLabel');
+    label.textContent = pct + '% Positive';
+    if (pct >= 70) label.style.color = '#27ae60';
+    else if (pct >= 40) label.style.color = '#f39c12';
+    else label.style.color = '#e74c3c';
+  }
+
+  function showState(state) {
+    document.getElementById('emptyState').style.display = state === 'empty' ? 'flex' : 'none';
+    document.getElementById('loadingState').style.display = state === 'loading' ? 'block' : 'none';
+    document.getElementById('resultState').style.display = state === 'result' ? 'block' : 'none';
+  }
+
+  async function generateReview() {
+    const movieName = document.getElementById('movieName').value.trim();
+    const shortFeeling = document.getElementById('shortFeeling').value.trim();
+    const sentimentRatio = parseInt(document.getElementById('sentimentSlider').value);
+
+    if (!movieName || !shortFeeling) {
+      alert('Please fill in both Movie Name and Your Quick Take.');
+      return;
+    }
+
+    const btn = document.getElementById('generateBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Writing...';
+    showState('loading');
+
+    try {
+      const res = await fetch('/api/generate-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          movie_name: movieName,
+          short_feeling: shortFeeling,
+          style: selectedStyle,
+          sentiment_ratio: sentimentRatio,
+          use_api: true
+        })
+      });
+
+      const data = await res.json();
+      if (data.error) { alert(data.error); showState('empty'); return; }
+
+      document.getElementById('reviewResult').textContent = data.review;
+      document.getElementById('charCount').textContent = '~' + data.review.length + ' chars';
+      document.getElementById('resultStyle').textContent = data.meta.style;
+      document.getElementById('resultSentiment').textContent = data.meta.sentiment_ratio + '% positive';
+      showState('result');
+    } catch (e) {
+      alert('Something went wrong. Try again!');
+      console.error(e);
+      showState('empty');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<span class="sparkle">✨</span> Generate Review';
+    }
+  }
+
+  function copyReview() {
+    const text = document.getElementById('reviewResult').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('copyBtn');
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = 'Copy';
+        btn.classList.remove('copied');
+      }, 2000);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    selectStyle('hype');
+    updateSentiment(70);
+  });
+</script>
+{% endblock %}

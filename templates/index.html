@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}TomatoMind — Home{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="container text-center py-5">
+        <h1 class="display-3 fw-bold hero-title">
+            <span class="brand-icon-lg">🍅</span> TomatoMind
+        </h1>
+        <p class="lead mt-3 hero-subtitle">
+            Your Intelligent Rotten Tomatoes Movie Analytics Companion
+        </p>
+        <p class="text-muted">Sentiment Analysis · Movie Recommendation · Data Visualization</p>
+    </div>
+</div>
+
+<div class="container py-5">
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4">
+        <div class="col">
+            <a href="/ai-review" class="text-decoration-none">
+                <div class="card feature-card card-sentiment h-100">
+                    <div class="card-body text-center">
+                        <div class="feature-icon">✨</div>
+                        <h5 class="card-title">AI Review Generator</h5>
+                        <p class="card-text">Drop a quick thought, pick a style, and let AI write a full movie review ready to post.</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col">
+            <a href="/recommendation" class="text-decoration-none">
+                <div class="card feature-card card-recommend h-100">
+                    <div class="card-body text-center">
+                        <div class="feature-icon">🎬</div>
+                        <h5 class="card-title">Movie Recommendation</h5>
+                        <p class="card-text">Discover similar movies by favorites, critic taste, or your current mood.</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col">
+            <a href="/movie" class="text-decoration-none">
+                <div class="card feature-card card-movie h-100">
+                    <div class="card-body text-center">
+                        <div class="feature-icon">🔍</div>
+                        <h5 class="card-title">Movie Explorer</h5>
+                        <p class="card-text">Search any movie for critic reviews, AI sentiment analysis, and keyword insights.</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col">
+            <a href="/dashboard" class="text-decoration-none">
+                <div class="card feature-card card-dashboard h-100">
+                    <div class="card-body text-center">
+                        <div class="feature-icon">📊</div>
+                        <h5 class="card-title">Data Dashboard</h5>
+                        <p class="card-text">Interactive charts: sentiment distribution, rating histograms, genre trends, and more.</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <div class="row mt-5">
+        <div class="col-lg-8 mx-auto">
+            <div class="card bg-light border-0">
+                <div class="card-body p-4">
+                    <h4 class="mb-3">📦 Dataset Overview</h4>
+                    <div class="row text-center">
+                        <div class="col-sm-4">
+                            <h3 class="text-tomato fw-bold">17.7K</h3>
+                            <small class="text-muted">Movies</small>
+                        </div>
+                        <div class="col-sm-4">
+                            <h3 class="text-tomato fw-bold">1.13M</h3>
+                            <small class="text-muted">Critic Reviews</small>
+                        </div>
+                        <div class="col-sm-4">
+                            <h3 class="text-tomato fw-bold">~700K</h3>
+                            <small class="text-muted">Fresh Reviews</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

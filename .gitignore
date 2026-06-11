@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.pkl
+*.npy
+*.h5
+model/saved/
+*.egg-info/
+.env
+.venv/
+venv/
+.DS_Store
+.claude/
+*.log

@@ -1,0 +1,935 @@
+{% extends "base.html" %}
+{% block title %}TomatoMind — Movie Explorer{% endblock %}
+
+{% block extra_head %}
+<style>
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(231, 76, 60, 0); }
+  }
+
+  /* ── Comparison Modal ── */
+  .compare-container {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0;
+    align-items: stretch;
+  }
+  .compare-vs {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8px;
+    z-index: 2;
+  }
+  .compare-vs-circle {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: #555;
+    color: white;
+    font-size: 14px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    letter-spacing: 1px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    flex-shrink: 0;
+  }
+
+  .compare-movie-card {
+    border: none;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+  }
+  .compare-movie-header {
+    padding: 20px 20px 16px;
+    position: relative;
+  }
+  .compare-movie-header.fresh-bg {
+    background: #27ae60;
+  }
+  .compare-movie-header.rotten-bg {
+    background: #c0392b;
+  }
+  .compare-movie-title {
+    font-size: 22px; font-weight: 800;
+    color: white;
+    margin: 0 0 6px;
+    letter-spacing: -0.3px;
+    line-height: 1.2;
+  }
+  .compare-movie-meta {
+    color: rgba(255,255,255,0.85);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .compare-scores {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .compare-score-box {
+    background: rgba(255,255,255,0.18);
+    backdrop-filter: blur(6px);
+    border-radius: 10px;
+    padding: 8px 14px;
+    min-width: 72px;
+    text-align: center;
+  }
+  .compare-score-value {
+    font-size: 26px; font-weight: 900;
+    color: white;
+    line-height: 1;
+  }
+  .compare-score-label {
+    font-size: 10px; font-weight: 600;
+    color: rgba(255,255,255,0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-top: 3px;
+  }
+
+  .compare-movie-body {
+    padding: 20px;
+    background: #fff;
+  }
+
+  /* Consensus pull-quote */
+  .compare-consensus {
+    position: relative;
+    padding: 14px 16px;
+    margin: 0 0 18px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    font-size: 13px;
+    font-style: italic;
+    color: #555;
+    line-height: 1.6;
+  }
+  .compare-consensus::before {
+    content: '"';
+    position: absolute;
+    left: 8px; top: -4px;
+    font-size: 40px;
+    color: #ddd;
+    font-family: Georgia, serif;
+    line-height: 1;
+  }
+
+  /* Sentiment stat bars */
+  .compare-stat-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .compare-stat-item {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+  .compare-stat-num {
+    font-size: 22px; font-weight: 800;
+    color: #2d3436;
+    line-height: 1;
+  }
+  .compare-stat-unit {
+    font-size: 11px;
+    color: #999;
+    margin-top: 2px;
+  }
+  .compare-stat-bar-wrap {
+    margin-top: 8px;
+    height: 6px;
+    background: #eee;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .compare-stat-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+  .compare-stat-bar.positive { background: #2ecc71; }
+  .compare-stat-bar.negative { background: #e74c3c; }
+
+  /* Keyword pills */
+  .compare-kw-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .compare-kw-pill {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #f0f0f0;
+    color: #555;
+    transition: background 0.15s;
+  }
+  .compare-kw-pill.highlight {
+    background: #2d3436;
+    color: #fff;
+  }
+
+  /* Section label */
+  .compare-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: #aaa;
+    margin-bottom: 8px;
+  }
+
+  /* ── Recommended cards ── */
+  .rec-card .card-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .rec-card .rec-title {
+    min-height: 2.8em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.3;
+    color: #2d3436;
+    margin-bottom: 8px;
+  }
+  .rec-card .rec-badge-row {
+    min-height: 26px;
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .rec-card .rec-genre {
+    min-height: 1.4em;
+    font-size: 11px;
+    color: #999;
+    margin-bottom: 6px;
+  }
+  .rec-card .rec-match {
+    font-size: 12px;
+    font-weight: 600;
+    color: #27ae60;
+  }
+
+  /* ── Favourite button ── */
+  .btn-fav {
+    border: 2px solid #e0e0e0;
+    background: white;
+    border-radius: 50px;
+    padding: 8px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #999;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-fav:hover { border-color: #e74c3c; color: #e74c3c; }
+  .btn-fav.active {
+    background: #ffeaea; border-color: #e74c3c; color: #e74c3c;
+  }
+  .btn-fav .heart-icon { font-size: 18px; transition: transform 0.2s; }
+  .btn-fav.active .heart-icon { transform: scale(1.15); }
+
+  @media (max-width: 768px) {
+    .compare-container {
+      grid-template-columns: 1fr;
+    }
+    .compare-vs {
+      padding: 8px 0;
+    }
+    .compare-vs-circle {
+      width: 36px; height: 36px;
+      font-size: 11px;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-3">
+    <h2 class="mb-2">🔍 Movie Explorer</h2>
+    <p class="text-muted mb-3 small">Search a movie to view reviews, sentiment analysis, and data insights.</p>
+
+    <!-- Search Bar -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="input-group input-group-lg">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" id="movieSearch" class="form-control" placeholder="Type a movie name..." autocomplete="off">
+                <div id="searchDropdown" class="autocomplete-dropdown"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loadingBox" class="text-center py-5 d-none">
+        <div class="spinner-border text-tomato" role="status"></div>
+        <p class="text-muted mt-2">Analyzing reviews...</p>
+    </div>
+
+    <!-- Movie Detail Content -->
+    <div id="movieContent" class="d-none">
+
+        <!-- Movie Info Card -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-lg-8">
+                        <h3 id="movieTitle" class="mb-1"></h3>
+                        <div class="mb-2" id="movieMeta"></div>
+                        <p class="small text-muted mb-1" id="movieInfo"></p>
+                        <p class="small fst-italic text-muted mb-0" id="movieConsensus"></p>
+                    </div>
+                    <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+                        <div id="tomatometerBadge" class="d-inline-block text-center me-3"></div>
+                        <div id="audienceBadge" class="d-inline-block text-center me-3"></div>
+                        <button id="favBtn" class="btn-fav mt-3 mt-lg-0" onclick="toggleFavourite()">
+                            <span class="heart-icon">♡</span> <span id="favLabel">Favourite</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Row -->
+        <div class="row g-2 mb-3" id="statsRow">
+            <div class="col-4 col-md-2">
+                <div class="card stat-card text-center"><div class="card-body py-2">
+                    <h5 id="statTotal" class="text-tomato mb-0">-</h5><small class="text-muted">Total Reviews</small>
+                </div></div>
+            </div>
+            <div class="col-4 col-md-2">
+                <div class="card stat-card text-center"><div class="card-body py-2">
+                    <h5 id="statFresh" class="text-success mb-0">-</h5><small class="text-muted">Fresh</small>
+                </div></div>
+            </div>
+            <div class="col-4 col-md-2">
+                <div class="card stat-card text-center"><div class="card-body py-2">
+                    <h5 id="statRotten" class="text-danger mb-0">-</h5><small class="text-muted">Rotten</small>
+                </div></div>
+            </div>
+            <div class="col-4 col-md-2">
+                <div class="card stat-card text-center"><div class="card-body py-2">
+                    <h5 id="statFreshPct" class="text-success mb-0">-</h5><small class="text-muted">Fresh %</small>
+                </div></div>
+            </div>
+            <div class="col-4 col-md-2">
+                <div class="card stat-card text-center"><div class="card-body py-2">
+                    <h5 id="statTopCritics" class="text-tomato mb-0">-</h5><small class="text-muted">Top Critics</small>
+                </div></div>
+            </div>
+            <div class="col-4 col-md-2">
+                <div class="card stat-card text-center"><div class="card-body py-2">
+                    <h5 id="statModelSent" class="text-tomato mb-0">-</h5><small class="text-muted">Positive %</small>
+                </div></div>
+            </div>
+        </div>
+
+        <!-- Sentiment Chart + Keywords -->
+        <div class="row g-2 mb-3">
+            <div class="col-lg-5">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body py-2 px-3">
+                        <h6 class="card-title mb-1">📊 Sentiment Analysis vs Original Label</h6>
+                        <canvas id="chartSentComparison" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-7">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body py-2 px-3">
+                        <h6 class="card-title mb-1">☁️ Top Keywords in Reviews</h6>
+                        <div id="keywordCloud" class="word-cloud py-2" style="min-height: 80px;">
+                            <p class="text-center text-muted">-</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Your Review -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-body py-2 px-3">
+                <h6 class="card-title mb-2">Write Your Review</h6>
+                <div class="input-group mb-2">
+                    <input type="text" id="userCriticName" class="form-control" placeholder="Your name (optional)" style="max-width:200px;">
+                    <input type="text" id="userReviewInput" class="form-control" placeholder="Share your thoughts on this movie...">
+                    <button class="btn btn-outline-secondary voice-btn" type="button" id="reviewVoiceBtn" title="Record review by voice" onclick="startReviewRecording()">
+                        <i class="bi bi-mic-fill"></i>
+                    </button>
+                    <button class="btn btn-tomato" id="submitReviewBtn" onclick="submitUserReview()">
+                        Submit
+                    </button>
+                </div>
+                <div id="reviewVoiceStatus" class="small text-muted d-none">
+                    <span id="reviewVoiceStatusText"></span>
+                </div>
+                <div id="userReviewResult" class="mt-2 d-none">
+                    <span id="userReviewSentiment"></span>
+                    <span class="small text-muted ms-2" id="userReviewConfidence"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reviews Table -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-body py-2 px-3">
+                <h6 class="card-title mb-2">Critic Reviews</h6>
+                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>Critic</th>
+                                <th>Original</th>
+                                <th>Sentiment</th>
+                                <th>Confidence</th>
+                                <th>Review</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reviewsTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- You Might Also Like -->
+        <div id="recommendedSection" class="d-none">
+            <div class="card shadow-sm mb-3">
+                <div class="card-body py-2 px-3">
+                    <h6 class="card-title mb-2">🎬 You Might Also Like</h6>
+                    <div id="recommendedGrid" class="row g-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="text-center py-5">
+        <div class="placeholder-icon">🎬</div>
+        <h5 class="text-muted mt-3">Search for a movie to explore its reviews</h5>
+        <p class="text-muted small">Reviews will be analyzed with sentiment model</p>
+    </div>
+</div>
+
+<!-- Comparison Modal -->
+<div class="modal fade" id="comparisonModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold">Side-by-Side Comparison</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="comparisonBody">
+                <div class="text-center py-4"><div class="spinner-border text-tomato"></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+let sentChart = null;
+
+const searchInput = document.getElementById('movieSearch');
+const dropdown = document.getElementById('searchDropdown');
+let searchTimeout;
+
+searchInput.addEventListener('input', () => {
+    clearTimeout(searchTimeout);
+    const q = searchInput.value.trim();
+    if (q.length < 2) { dropdown.style.display = 'none'; return; }
+    searchTimeout = setTimeout(async () => {
+        const res = await fetch(`/api/movies/search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        if (!data.movies.length) { dropdown.style.display = 'none'; return; }
+        dropdown.innerHTML = data.movies.map(m =>
+            `<div class="autocomplete-item" data-id="${m.id}">${m.title}</div>`
+        ).join('');
+        dropdown.style.display = 'block';
+        dropdown.querySelectorAll('.autocomplete-item').forEach(item => {
+            item.addEventListener('click', () => {
+                searchInput.value = item.textContent;
+                dropdown.style.display = 'none';
+                loadMovie(item.dataset.id);
+            });
+        });
+    }, 300);
+});
+
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('#movieSearch') && !e.target.closest('#searchDropdown')) {
+        dropdown.style.display = 'none';
+    }
+});
+
+searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        dropdown.style.display = 'none';
+        const q = searchInput.value.trim();
+        if (!q) return;
+        fetch(`/api/movies/search?q=${encodeURIComponent(q)}`).then(r => r.json()).then(data => {
+            if (data.movies.length) loadMovie(data.movies[0].id);
+        });
+    }
+});
+
+// ── Auto-load from URL query param ?q= ──
+(function autoLoadFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('q');
+    if (q) {
+        searchInput.value = decodeURIComponent(q);
+        fetch(`/api/movies/search?q=${encodeURIComponent(q)}`).then(r => r.json()).then(data => {
+            if (data.movies.length) loadMovie(data.movies[0].id);
+        });
+    }
+})();
+
+async function loadMovie(movieId) {
+    document.getElementById('emptyState').classList.add('d-none');
+    document.getElementById('movieContent').classList.add('d-none');
+    document.getElementById('loadingBox').classList.remove('d-none');
+
+    try {
+        const res = await fetch(`/api/movie/${movieId}`);
+        if (!res.ok) { alert('Movie not found'); return; }
+        const data = await res.json();
+
+        // Movie info
+        const m = data.movie;
+        document.getElementById('movieTitle').textContent = m.title;
+        document.getElementById('movieMeta').innerHTML = `
+            <span class="badge bg-secondary">${m.rating}</span>
+            <span class="badge bg-secondary">${m.runtime} min</span>
+            <span class="badge bg-secondary">${m.release_date}</span>
+            <span class="badge bg-info">${m.directors}</span>
+            <span class="text-muted small ms-1">${m.genres}</span>
+        `;
+        document.getElementById('movieInfo').textContent = m.info.substring(0, 300);
+        document.getElementById('movieConsensus').textContent = m.consensus ? `Critics Consensus: ${m.consensus}` : '';
+
+        // Tomatometer badge
+        const tomatoColor = m.tomatometer_status.includes('Fresh') ? 'success' : 'danger';
+        const tomatoIcon = m.tomatometer_status.includes('Fresh') ? '🍅' : '💀';
+        document.getElementById('tomatometerBadge').innerHTML = `
+            <div class="fw-bold">${tomatoIcon} Tomatometer</div>
+            <span class="badge bg-${tomatoColor} fs-5">${m.tomatometer_rating}%</span>
+            <div><small class="text-muted">${m.tomatometer_status}</small></div>
+        `;
+
+        const audColor = m.audience_status === 'Upright' ? 'success' : 'danger';
+        const audIcon = m.audience_status === 'Upright' ? '🍿' : '👎';
+        document.getElementById('audienceBadge').innerHTML = `
+            <div class="fw-bold">${audIcon} Audience</div>
+            <span class="badge bg-${audColor} fs-5">${m.audience_rating}%</span>
+            <div><small class="text-muted">${m.audience_status}</small></div>
+        `;
+
+        // Stats
+        const s = data.stats;
+        document.getElementById('statTotal').textContent = s.total_reviews;
+        document.getElementById('statFresh').textContent = s.fresh_count;
+        document.getElementById('statRotten').textContent = s.rotten_count;
+        document.getElementById('statFreshPct').textContent = s.fresh_pct + '%';
+        document.getElementById('statTopCritics').textContent = s.top_critics_count;
+        document.getElementById('statModelSent').textContent = s.model_pos_pct + '%';
+
+        // Sentiment comparison chart
+        if (sentChart) sentChart.destroy();
+        const ctx = document.getElementById('chartSentComparison').getContext('2d');
+        sentChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Original Label', 'AI Prediction'],
+                datasets: [
+                    { label: 'Fresh/Positive', data: [s.fresh_count, s.model_pos_count], backgroundColor: '#2ecc71' },
+                    { label: 'Rotten/Negative', data: [s.rotten_count, s.model_neg_count], backgroundColor: '#e74c3c' }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } },
+                plugins: { legend: { position: 'bottom' } }
+            }
+        });
+
+        // Keywords
+        const kwDiv = document.getElementById('keywordCloud');
+        const maxCount = Math.max(...data.keywords.map(k => k.count), 1);
+        kwDiv.innerHTML = data.keywords.map(k => {
+            const size = Math.max(12, Math.round((k.count / maxCount) * 28));
+            const colors = ['#e74c3c','#2ecc71','#3498db','#f39c12','#9b59b6','#1abc9c'];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            return `<span style="font-size:${size}px;color:${color};margin:3px;display:inline-block;" title="${k.count} mentions">${k.text}</span>`;
+        }).join(' ');
+
+        // Reviews table
+        const tbody = document.getElementById('reviewsTableBody');
+        tbody.innerHTML = data.reviews.map(r => {
+            const sentClass = r.sentiment.includes('Positive') ? 'success' : 'danger';
+            const sentIcon = r.sentiment.includes('Positive') ? '🍅' : '💀';
+            const origClass = r.review_type === 'Fresh' ? 'success' : 'danger';
+            const topIcon = r.top_critic ? ' ⭐' : '';
+            return `<tr>
+                <td class="small"><strong>${r.critic_name}${topIcon}</strong><br><span class="text-muted">${r.publisher}</span></td>
+                <td><span class="badge bg-${origClass}">${r.review_type}</span></td>
+                <td><span class="badge bg-${sentClass}">${sentIcon} ${r.sentiment}</span></td>
+                <td class="small">${r.confidence}%</td>
+                <td class="small">${r.content.substring(0, 250)}${r.content.length > 250 ? '...' : ''}</td>
+            </tr>`;
+        }).join('');
+
+        document.getElementById('loadingBox').classList.add('d-none');
+        document.getElementById('movieContent').classList.remove('d-none');
+
+        // Store movie data globally for favourite
+        window._currentMovieData = data.movie;
+
+        // ── Recommended movies ──
+        renderRecommended(data.recommended, data.movie);
+
+        // Update favourite button
+        updateFavButton();
+    } catch (e) {
+        alert('Error: ' + e.message);
+        document.getElementById('loadingBox').classList.add('d-none');
+    }
+}
+
+// ── Favourite management ──
+const FAVS_KEY = 'tomato_mind_favourites';
+function getFavourites() { try { return JSON.parse(localStorage.getItem(FAVS_KEY))||[]; } catch { return []; } }
+function saveFavourites(list) { localStorage.setItem(FAVS_KEY, JSON.stringify(list)); }
+function toggleFavourite() {
+    const m = window._currentMovieData; if (!m||!m.id) return;
+    let favs = getFavourites(); const idx = favs.findIndex(f => f.id===m.id);
+    if (idx>=0) favs.splice(idx,1); else favs.push({id:m.id,title:m.title,rating:m.tomatometer_rating,genres:m.genres,year:(m.release_date||'').substring(0,4),consensus:m.consensus});
+    saveFavourites(favs); updateFavButton();
+}
+function updateFavButton() {
+    const m = window._currentMovieData; const btn = document.getElementById('favBtn');
+    if (!m||!m.id) { btn.style.display='none'; return; } btn.style.display='';
+    const fav = getFavourites().some(f=>f.id===m.id);
+    btn.classList.toggle('active', fav); btn.querySelector('.heart-icon').textContent = fav?'♥':'♡';
+    btn.querySelector('#favLabel').textContent = fav?'Favourited':'Favourite';
+}
+
+// Handle input-group positioning
+const searchWrapper = document.querySelector('.input-group');
+searchWrapper.style.position = 'relative';
+
+// ── Voice Recording for Review ──────────────────────────────
+let reviewMediaRecorder = null;
+let reviewAudioChunks = [];
+let reviewStream = null;
+
+async function startReviewRecording() {
+    if (reviewMediaRecorder && reviewMediaRecorder.state === 'recording') {
+        reviewMediaRecorder.stop();
+        return;
+    }
+    try {
+        reviewStream = await navigator.mediaDevices.getUserMedia({
+            audio: { channelCount: 1, sampleRate: 16000 }
+        });
+        reviewMediaRecorder = new MediaRecorder(reviewStream);
+        reviewAudioChunks = [];
+
+        reviewMediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) reviewAudioChunks.push(e.data);
+        };
+
+        reviewMediaRecorder.onstop = async () => {
+            reviewStream.getTracks().forEach(t => t.stop());
+            const statusEl = document.getElementById('reviewVoiceStatus');
+            const statusText = document.getElementById('reviewVoiceStatusText');
+            statusEl.classList.remove('d-none');
+            statusText.textContent = 'Transcribing...';
+
+            try {
+                // Decode WebM → resample to 16kHz mono → WAV
+                const webmBlob = new Blob(reviewAudioChunks, { type: 'audio/webm' });
+                const arrayBuffer = await webmBlob.arrayBuffer();
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+                const sampleRate = 16000;
+                const offlineCtx = new OfflineAudioContext(1, audioBuffer.duration * sampleRate, sampleRate);
+                const source = offlineCtx.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(offlineCtx.destination);
+                source.start();
+                const rendered = await offlineCtx.startRendering();
+
+                const pcmData = rendered.getChannelData(0);
+                const wavBytes = encodeWAV(pcmData, sampleRate);
+
+                const res = await fetch('/api/transcribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/octet-stream' },
+                    body: wavBytes,
+                });
+                const data = await res.json();
+                if (data.text) {
+                    document.getElementById('userReviewInput').value = data.text;
+                    statusText.textContent = 'Done.';
+                } else {
+                    statusText.textContent = 'No speech detected.';
+                }
+                audioCtx.close();
+            } catch (e) {
+                statusText.textContent = 'Error: ' + e.message;
+            }
+            setTimeout(() => statusEl.classList.add('d-none'), 2000);
+            resetReviewVoiceButton();
+        };
+
+        reviewMediaRecorder.start();
+        setReviewVoiceButton('recording');
+        setTimeout(() => {
+            if (reviewMediaRecorder && reviewMediaRecorder.state === 'recording') reviewMediaRecorder.stop();
+        }, 10000);
+    } catch (e) {
+        alert('Microphone access denied.');
+    }
+}
+
+// ── WAV encoder (same as recommendation.html) ──────────────
+function encodeWAV(samples, sampleRate) {
+    const buffer = new ArrayBuffer(44 + samples.length * 2);
+    const view = new DataView(buffer);
+    function writeString(offset, str) {
+        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+    }
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + samples.length * 2, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, 'data');
+    view.setUint32(40, samples.length * 2, true);
+    for (let i = 0; i < samples.length; i++) {
+        const s = Math.max(-1, Math.min(1, samples[i]));
+        view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+    return new Uint8Array(buffer);
+}
+
+function setReviewVoiceButton(state) {
+    const btn = document.getElementById('reviewVoiceBtn');
+    const icon = btn.querySelector('i');
+    if (state === 'recording') {
+        btn.classList.remove('btn-outline-secondary');
+        btn.classList.add('btn-danger');
+        icon.className = 'bi bi-mic-fill';
+        btn.style.animation = 'pulse 1s infinite';
+    } else {
+        btn.classList.remove('btn-danger');
+        btn.classList.add('btn-outline-secondary');
+        icon.className = 'bi bi-mic-fill';
+        btn.style.animation = 'none';
+    }
+}
+function resetReviewVoiceButton() { setReviewVoiceButton('idle'); }
+
+// ── Submit User Review ──────────────────────────────────────
+async function submitUserReview() {
+    const text = document.getElementById('userReviewInput').value.trim();
+    if (text.length < 10) { alert('Please write at least 10 characters.'); return; }
+    const name = document.getElementById('userCriticName').value.trim() || 'You';
+
+    const btn = document.getElementById('submitReviewBtn');
+    btn.disabled = true;
+    btn.textContent = '...';
+
+    try {
+        const res = await fetch('/api/review/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                review_text: text,
+                movie_id: currentMovieId || '',
+                critic_name: name,
+            }),
+        });
+        const d = await res.json();
+        if (d.error) { alert(d.error); return; }
+
+        // Show result
+        const resultDiv = document.getElementById('userReviewResult');
+        const sentEl = document.getElementById('userReviewSentiment');
+        const confEl = document.getElementById('userReviewConfidence');
+        resultDiv.classList.remove('d-none');
+        const isPos = d.sentiment.includes('Positive');
+        const cls = isPos ? 'badge bg-success' : 'badge bg-danger';
+        const icon = isPos ? 'Positive' : 'Negative';
+        sentEl.innerHTML = `<span class="${cls} fs-6">${icon}</span>`;
+        confEl.textContent = `Confidence: ${d.confidence}%`;
+
+        // Prepend to reviews table
+        const tbody = document.getElementById('reviewsTableBody');
+        const row = document.createElement('tr');
+        row.style.background = '#fffde7';
+        const sentClass = d.sentiment.includes('Positive') ? 'success' : 'danger';
+        row.innerHTML = `<td class="small"><strong>${d.critic_name}</strong><br><span class="text-muted">You</span></td>
+            <td><span class="badge bg-info">User</span></td>
+            <td><span class="badge bg-${sentClass}">${d.sentiment}</span></td>
+            <td class="small">${d.confidence}%</td>
+            <td class="small">${d.content.substring(0, 250)}</td>`;
+        tbody.insertBefore(row, tbody.firstChild);
+
+        document.getElementById('userReviewInput').value = '';
+    } catch (e) {
+        alert('Error: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Submit';
+    }
+}
+
+// ── Recommended movies ──
+let currentMovieId = null;
+
+function renderRecommended(recs, currentMovie) {
+    currentMovieId = currentMovie.id;
+    const section = document.getElementById('recommendedSection');
+    const grid = document.getElementById('recommendedGrid');
+    if (!recs || !recs.length) { section.classList.add('d-none'); return; }
+    section.classList.remove('d-none');
+
+    grid.innerHTML = recs.map(r => {
+        const ratingColor = r.rating >= 60 ? 'bg-success' : 'bg-danger';
+        const emoji = r.rating >= 60 ? '🍅' : '💀';
+        return `
+        <div class="col-6 col-md-4 col-lg-2">
+            <div class="card rec-card h-100" onclick="loadComparison('${r.id}')" style="cursor:pointer; transition: transform 0.15s;">
+                <div class="card-body py-2 px-2">
+                    <div class="rec-title">${r.title}</div>
+                    <div class="rec-badge-row">
+                        <span class="badge ${ratingColor}">${emoji} ${r.rating}%</span>
+                    </div>
+                    <div class="rec-genre">${r.genres.split(',')[0]}</div>
+                    <div class="rec-match">Match: ${r.similarity}%</div>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    // Hover effect
+    grid.querySelectorAll('.rec-card').forEach(card => {
+        card.addEventListener('mouseenter', () => card.style.transform = 'translateY(-4px)');
+        card.addEventListener('mouseleave', () => card.style.transform = 'translateY(0)');
+    });
+}
+
+async function loadComparison(otherMovieId) {
+    if (!currentMovieId || !otherMovieId) return;
+
+    const modal = new bootstrap.Modal(document.getElementById('comparisonModal'));
+    modal.show();
+
+    const body = document.getElementById('comparisonBody');
+    body.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-tomato"></div><p class="text-muted mt-2">Loading comparison...</p></div>';
+
+    try {
+        const res = await fetch(`/api/movies/compare?a=${currentMovieId}&b=${otherMovieId}`);
+        const d = await res.json();
+        if (d.error) { body.innerHTML = `<div class="alert alert-danger">${d.error}</div>`; return; }
+        body.innerHTML = buildComparisonHTML(d.a, d.b);
+    } catch(e) {
+        body.innerHTML = `<div class="alert alert-danger">Error: ${e.message}</div>`;
+    }
+}
+
+function buildComparisonHTML(a, b) {
+    const renderSide = (m, sideLabel) => {
+        if (!m) return '<div class="col-12 text-center py-4"><p class="text-muted">Movie not found</p></div>';
+        const isFresh = m.tomatometer_status.includes('Fresh');
+        const headerClass = isFresh ? 'fresh-bg' : 'rotten-bg';
+        const tomatoPct = m.tomatometer_rating;
+        const audiencePct = m.audience_rating || 0;
+        const sentPosPct = m.sentiment.positive_pct;
+        const sentNegPct = (100 - sentPosPct).toFixed(1);
+
+        // Keywords: first 3 get "highlight" class
+        const kwHTML = (m.keywords || []).map((k, i) =>
+            `<span class="compare-kw-pill${i < 3 ? ' highlight' : ''}">${k.text}</span>`
+        ).join('');
+
+        return `
+        <div class="compare-movie-card">
+            <div class="compare-movie-header ${headerClass}">
+                <h3 class="compare-movie-title">${m.title}</h3>
+                <div class="compare-movie-meta">
+                    ${m.directors} &middot; ${m.release_date} &middot; ${m.runtime} min
+                </div>
+                <div class="compare-scores">
+                    <div class="compare-score-box">
+                        <div class="compare-score-value">${tomatoPct}%</div>
+                        <div class="compare-score-label">Tomatometer</div>
+                    </div>
+                    <div class="compare-score-box">
+                        <div class="compare-score-value">${audiencePct}%</div>
+                        <div class="compare-score-label">Audience</div>
+                    </div>
+                </div>
+            </div>
+            <div class="compare-movie-body">
+                ${m.consensus ? `
+                <div class="compare-consensus">${m.consensus}</div>` : ''}
+
+                <div class="compare-section-label">Genre</div>
+                <p style="font-size:14px;color:#555;margin:0 0 16px;">${m.genres}</p>
+
+                <div class="compare-section-label">Sentiment Breakdown</div>
+                <div class="compare-stat-row">
+                    <div class="compare-stat-item">
+                        <div class="compare-stat-num" style="color:#27ae60;">${sentPosPct}%</div>
+                        <div class="compare-stat-unit">Positive</div>
+                        <div class="compare-stat-bar-wrap">
+                            <div class="compare-stat-bar positive" style="width:${sentPosPct}%"></div>
+                        </div>
+                    </div>
+                    <div class="compare-stat-item">
+                        <div class="compare-stat-num" style="color:#c0392b;">${sentNegPct}%</div>
+                        <div class="compare-stat-unit">Negative</div>
+                        <div class="compare-stat-bar-wrap">
+                            <div class="compare-stat-bar negative" style="width:${sentNegPct}%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="compare-section-label">Key Topics</div>
+                <div class="compare-kw-wrap">${kwHTML}</div>
+            </div>
+        </div>`;
+    };
+
+    return `<div class="compare-container">
+        <div>${renderSide(a, 'A')}</div>
+        <div class="compare-vs"><div class="compare-vs-circle">VS</div></div>
+        <div>${renderSide(b, 'B')}</div>
+    </div>`;
+}
+</script>
+{% endblock %}

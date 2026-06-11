@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+{% block title %}TomatoMind — Data Dashboard{% endblock %}
+
+{% block content %}
+<div class="container py-2">
+    <h2 class="mb-1">📊 Data Dashboard</h2>
+    <p class="text-muted mb-2 small">Visualized insights from the Rotten Tomatoes dataset.</p>
+
+    <!-- Overview Stats -->
+    <div class="row g-2 mb-3" id="overviewStats">
+        <div class="col-6 col-md-3">
+            <div class="card stat-card text-center">
+                <div class="card-body py-2"><h3 class="text-tomato stat-number" id="statMovies">-</h3><small class="text-muted">Total Movies</small></div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card stat-card text-center">
+                <div class="card-body py-2"><h3 class="text-tomato stat-number" id="statReviews">-</h3><small class="text-muted">Total Reviews</small></div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card stat-card text-center">
+                <div class="card-body py-2"><h3 class="text-tomato stat-number" id="statAvg">-</h3><small class="text-muted">Avg Tomatometer</small></div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card stat-card text-center">
+                <div class="card-body py-2"><h3 class="text-tomato stat-number" id="statFresh">-</h3><small class="text-muted">Fresh Movies %</small></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row 1 -->
+    <div class="row g-2 mb-3">
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body py-2 px-3">
+                    <h6 class="card-title mb-1">🥧 Tomatometer Sentiment Distribution</h6>
+                    <canvas id="chartSentiment" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body py-2 px-3">
+                    <h6 class="card-title mb-1">📊 Tomatometer Rating Distribution</h6>
+                    <canvas id="chartRating" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row 2 -->
+    <div class="row g-2 mb-3">
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body py-2 px-3">
+                    <h6 class="card-title mb-1">🎭 Most Popular Genres</h6>
+                    <canvas id="chartGenres" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body py-2 px-3">
+                    <h6 class="card-title mb-1">📈 Yearly Movie Trend (2000–2025)</h6>
+                    <canvas id="chartTimeline" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Word Cloud -->
+    <div class="row g-2">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body py-2 px-3">
+                    <h6 class="card-title mb-1">☁️ Critics Consensus Word Cloud</h6>
+                    <div id="wordCloud" class="word-cloud py-2" style="min-height: 100px;">
+                        <p class="text-center text-muted">Loading...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Drill-Down Modal -->
+<div class="modal fade" id="drillModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title" id="drillModalTitle">📋 Movies</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="drillModalBody">
+                <div class="text-center py-4"><div class="spinner-border text-tomato"></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+const COLORS = ['#e74c3c','#2ecc71','#3498db','#f39c12','#9b59b6','#1abc9c','#e67e22','#2980b9','#c0392b','#27ae60'];
+const tomatoColors = ['#e74c3c', '#2ecc71'];
+
+async function fetchJSON(url) {
+    const res = await fetch(url);
+    return res.json();
+}
+
+// ── Common click handler: drill down to movie list ──
+const commonOptions = {};
+
+function drillOnClick(params, ctx, url, title) {
+    const modal = new bootstrap.Modal(document.getElementById('drillModal'));
+    document.getElementById('drillModalTitle').textContent = title;
+    document.getElementById('drillModalBody').innerHTML = '<div class="text-center py-4"><div class="spinner-border text-tomato"></div><p class="text-muted mt-2">Loading movies...</p></div>';
+    modal.show();
+
+    fetchJSON(url).then(data => renderDrillResults(data, title)).catch(e => {
+        document.getElementById('drillModalBody').innerHTML = `<div class="alert alert-danger">Error: ${e.message}</div>`;
+    });
+}
+
+function renderDrillResults(data, title) {
+    const body = document.getElementById('drillModalBody');
+    if (!data.movies || !data.movies.length) {
+        body.innerHTML = '<p class="text-muted text-center py-4">No movies found.</p>';
+        return;
+    }
+    body.innerHTML = `
+        <p class="text-muted small mb-2">${data.total.toLocaleString()} movies found</p>
+        <div class="table-responsive" style="max-height: 55vh;">
+            <table class="table table-sm table-hover mb-0">
+                <thead class="table-light sticky-top">
+                    <tr><th>Movie</th><th>Rating</th><th>Status</th><th>Genres</th><th>Year</th><th>Consensus</th></tr>
+                </thead>
+                <tbody>${data.movies.map(m => {
+                    const rc = m.rating >= 60 ? 'success' : 'danger';
+                    const re = m.rating >= 60 ? '🍅' : '💀';
+                    const sc = m.status.includes('Fresh') ? 'success' : 'danger';
+                    return `<tr style="cursor:pointer" onclick="window.open('/movie?q=${encodeURIComponent(m.title)}','_blank')">
+                        <td class="small fw-bold">${m.title}</td>
+                        <td><span class="badge bg-${rc}">${re} ${m.rating}%</span></td>
+                        <td><span class="badge bg-${sc}">${m.status}</span></td>
+                        <td class="small">${m.genres}</td>
+                        <td class="small">${m.year}</td>
+                        <td class="small text-muted">${(m.consensus||'').substring(0, 100)}</td>
+                    </tr>`;
+                }).join('')}</tbody>
+            </table>
+        </div>`;
+}
+
+async function initDashboard() {
+    // Overview
+    const overview = await fetchJSON('/api/dashboard/overview');
+    document.getElementById('statMovies').textContent = (overview.total_movies / 1000).toFixed(1) + 'K';
+    document.getElementById('statReviews').textContent = (overview.total_reviews / 1000000).toFixed(2) + 'M';
+    document.getElementById('statAvg').textContent = overview.avg_tomatometer + '%';
+    document.getElementById('statFresh').textContent = overview.fresh_pct + '%';
+
+    // Sentiment Pie — click Fresh/Rotten to see movies
+    const sentData = await fetchJSON('/api/dashboard/sentiment-distribution');
+    new Chart(document.getElementById('chartSentiment'), {
+        type: 'doughnut',
+        data: {
+            labels: sentData.labels,
+            datasets: [{ data: sentData.data, backgroundColor: ['#2ecc71', '#e74c3c'], borderWidth: 2 }]
+        },
+        options: {
+            responsive: true,
+            onClick: (e, elements, chart) => {
+                if (!elements.length) return;
+                const idx = elements[0].index;
+                const status = sentData.labels[idx];  // 'Fresh' or 'Rotten'
+                drillOnClick(null, null,
+                    `/api/movies/list?status=${encodeURIComponent(status)}&sort=rating&limit=50`,
+                    `📋 ${status} Movies`);
+            },
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+
+    // Rating Bar — click a bar to see movies in that rating range
+    const ratLabels = ['0-20','20-40','40-60','60-80','80-100'];
+    const ratData = await fetchJSON('/api/dashboard/rating-distribution');
+    new Chart(document.getElementById('chartRating'), {
+        type: 'bar',
+        data: {
+            labels: ratLabels,
+            datasets: [{ label: 'Number of Movies', data: ratData.data, backgroundColor: ['#c0392b','#e74c3c','#f39c12','#2ecc71','#27ae60'], borderWidth: 0 }]
+        },
+        options: {
+            responsive: true,
+            onClick: (e, elements, chart) => {
+                if (!elements.length) return;
+                const idx = elements[0].index;
+                const range = ratLabels[idx].split('-');
+                drillOnClick(null, null,
+                    `/api/movies/list?rating_min=${range[0]}&rating_max=${range[1]}&sort=rating&limit=50`,
+                    `📊 Movies Rated ${ratLabels[idx]}%`);
+            },
+            scales: { y: { beginAtZero: true } },
+            plugins: { legend: { display: false } }
+        }
+    });
+
+    // Genre Bar — click a genre to see its movies
+    const genData = await fetchJSON('/api/dashboard/genre-popularity');
+    new Chart(document.getElementById('chartGenres'), {
+        type: 'bar',
+        data: {
+            labels: genData.labels,
+            datasets: [{ label: 'Movies', data: genData.data, backgroundColor: COLORS, borderWidth: 0 }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            onClick: (e, elements, chart) => {
+                if (!elements.length) return;
+                const idx = elements[0].index;
+                const genre = genData.labels[idx];
+                drillOnClick(null, null,
+                    `/api/movies/list?genre=${encodeURIComponent(genre)}&sort=rating&limit=50`,
+                    `🎭 ${genre} Movies`);
+            },
+            scales: { x: { beginAtZero: true } },
+            plugins: { legend: { display: false } }
+        }
+    });
+
+    // Timeline — click a data point to see that year's top movies
+    const timeData = await fetchJSON('/api/dashboard/yearly-trend');
+    new Chart(document.getElementById('chartTimeline'), {
+        type: 'line',
+        data: {
+            labels: timeData.years,
+            datasets: [{
+                label: 'Movie Count', data: timeData.counts,
+                borderColor: '#e74c3c', backgroundColor: 'rgba(231,76,60,0.1)',
+                fill: true, tension: 0.3, yAxisID: 'y'
+            }, {
+                label: 'Avg Tomatometer', data: timeData.ratings,
+                borderColor: '#2ecc71', backgroundColor: 'rgba(46,204,113,0.1)',
+                fill: true, tension: 0.3, yAxisID: 'y1'
+            }]
+        },
+        options: {
+            responsive: true,
+            interaction: { intersect: false, mode: 'index' },
+            onClick: (e, elements, chart) => {
+                if (!elements.length) return;
+                const idx = elements[0].index;
+                const year = timeData.years[idx];
+                drillOnClick(null, null,
+                    `/api/movies/list?year=${year}&sort=rating&limit=50`,
+                    `📈 Top Movies of ${year}`);
+            },
+            scales: {
+                y: { type: 'linear', position: 'left', title: { display: true, text: 'Movie Count' } },
+                y1: { type: 'linear', position: 'right', min: 0, max: 100, title: { display: true, text: 'Avg Rating %' }, grid: { drawOnChartArea: false } }
+            }
+        }
+    });
+
+    // Word Cloud
+    const wcData = await fetchJSON('/api/dashboard/wordcloud');
+    const wcDiv = document.getElementById('wordCloud');
+    const maxSize = Math.max(...wcData.words.map(w => w.size));
+    wcDiv.innerHTML = wcData.words.map(w => {
+        const fontSize = Math.max(12, Math.round((w.size / maxSize) * 40));
+        const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+        return `<span style="font-size:${fontSize}px;color:${color};margin:4px;display:inline-block;opacity:0.85;cursor:pointer" onclick="drillOnClick(null,null,'/api/movies/list?genre=${encodeURIComponent(w.text)}&sort=rating&limit=30','☁️ Movies: ${w.text}')">${w.text}</span>`;
+    }).join(' ');
+}
+
+initDashboard();
+</script>
+{% endblock %}

@@ -1,0 +1,610 @@
+{% extends "base.html" %}
+{% block title %}TomatoMind — Movie Recommendation{% endblock %}
+
+{% block extra_head %}
+<style>
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(231, 76, 60, 0); }
+  }
+  .voice-btn { transition: all 0.2s; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h2 class="mb-2">🎬 Movie Recommendation</h2>
+    <p class="text-muted mb-4">Discover similar movies based on your taste, or get personalized recommendations.</p>
+
+    <ul class="nav nav-tabs mb-4" id="recTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-movies" data-bs-toggle="tab" data-bs-target="#panel-movies" type="button">
+                <i class="bi bi-heart"></i> Mode A: By Favorite Movies
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-user" data-bs-toggle="tab" data-bs-target="#panel-user" type="button">
+                <i class="bi bi-person"></i> Mode B: Simulated User
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-mood" data-bs-toggle="tab" data-bs-target="#panel-mood" type="button">
+                <i class="bi bi-emoji-smile"></i> Mode C: By Mood
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- Favourites summary bar -->
+        <div id="favBar" class="alert alert-light border mb-3 d-none" style="border-radius:12px;">
+            <div class="d-flex justify-content-between align-items-center">
+                <span><strong>My Favourites</strong> <span class="text-muted small" id="favCount"></span></span>
+                <div>
+                    <button class="btn btn-sm btn-outline-secondary me-1" onclick="showFavourites()">View List</button>
+                    <button class="btn btn-sm btn-tomato" onclick="recommendFromFavourites()">Recommend from All</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Favourites List Modal -->
+        <div class="modal fade" id="favListModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header bg-light">
+                        <h5 class="modal-title">My Favourites</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body" id="favListBody"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mode A: By Movies -->
+        <div class="tab-pane fade show active" id="panel-movies">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Pick 1-3 Movies You Like</h5>
+                    <div id="movieInputs">
+                        <div class="input-group mb-2">
+                            <span class="input-group-text">1</span>
+                            <input type="text" class="form-control movie-search" placeholder="Type or speak a movie name..." autocomplete="off">
+                            <button class="btn btn-outline-secondary voice-btn" type="button" title="Record movie name by voice" onclick="startRecording(this, '1')">
+                                <i class="bi bi-mic-fill"></i>
+                            </button>
+                            <div class="autocomplete-dropdown"></div>
+                        </div>
+                        <button id="addMovieBtn" class="btn btn-sm btn-outline-secondary mb-3">
+                            <i class="bi bi-plus"></i> Add another movie
+                        </button>
+                    </div>
+                    <div id="voiceStatus" class="small text-muted mb-2 d-none">
+                        <span class="spinner-border spinner-border-sm text-danger me-1" role="status"></span>
+                        <span id="voiceStatusText">Recording...</span>
+                    </div>
+                    <button id="searchByMovieBtn" class="btn btn-tomato px-4">
+                        <i class="bi bi-search"></i> Get Recommendations
+                    </button>
+                    <div id="movieLoading" class="spinner-border text-tomato ms-3 d-none" role="status"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mode B: By User -->
+        <div class="tab-pane fade" id="panel-user">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Select a Simulated User</h5>
+
+                    <!-- Searchable critic selector -->
+                    <div class="critic-selector" style="position: relative; max-width: 450px;">
+                        <div class="input-group mb-2">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="text" id="criticSearch" class="form-control"
+                                   placeholder="Search critics by name..."
+                                   autocomplete="off"
+                                   oninput="filterCritics()"
+                                   onfocus="showCriticDropdown()">
+                        </div>
+                        <div id="criticDropdown" class="critic-dropdown"
+                             style="display: none; position: absolute; top: 100%; left: 0; right: 0;
+                                    max-height: 260px; overflow-y: auto; background: white;
+                                    border: 1px solid #e0e0e0; border-radius: 12px;
+                                    box-shadow: 0 8px 30px rgba(0,0,0,0.12); z-index: 1000;">
+                        </div>
+                    </div>
+
+                    <div id="selectedCritic" class="mt-2" style="display: none;">
+                        <span class="badge bg-tomato" style="font-size: 13px; padding: 8px 14px;">
+                            <span id="selectedCriticName"></span>
+                            <button class="btn-close btn-close-white ms-2" style="font-size: 8px;"
+                                    onclick="clearCritic()"></button>
+                        </span>
+                    </div>
+
+                    <input type="hidden" id="userSelect">
+
+                    <button id="searchByUserBtn" class="btn btn-tomato px-4 mt-3">
+                        <i class="bi bi-search"></i> Get Recommendations
+                    </button>
+                    <div id="userLoading" class="spinner-border text-tomato ms-3 d-none" role="status"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mode C: By Mood -->
+        <div class="tab-pane fade" id="panel-mood">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">How Are You Feeling Today?</h5>
+                    <div class="row mb-3">
+                        <div class="col-lg-6">
+                            <textarea id="moodInput" class="form-control" rows="3"
+                                placeholder="Describe your current mood...&#10;&#10;Examples: I feel cheerful and excited today&#10;I'm feeling a bit nostalgic and thoughtful&#10;I need something thrilling to get my heart racing"></textarea>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="d-flex flex-wrap gap-2 mood-tags">
+                                <span class="badge mood-badge" data-mood="happy">😊 Happy</span>
+                                <span class="badge mood-badge" data-mood="sad">😢 Sad</span>
+                                <span class="badge mood-badge" data-mood="excited">🤩 Excited</span>
+                                <span class="badge mood-badge" data-mood="adventurous">🏔️ Adventurous</span>
+                                <span class="badge mood-badge" data-mood="romantic">💕 Romantic</span>
+                                <span class="badge mood-badge" data-mood="thoughtful">🤔 Thoughtful</span>
+                                <span class="badge mood-badge" data-mood="tense">😰 Tense</span>
+                                <span class="badge mood-badge" data-mood="nostalgic">📼 Nostalgic</span>
+                                <span class="badge mood-badge" data-mood="stressed">😤 Stressed</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="searchByMoodBtn" class="btn btn-tomato px-4">
+                        <i class="bi bi-emoji-smile"></i> Recommend by Mood
+                    </button>
+                    <div id="moodLoading" class="spinner-border text-tomato ms-3 d-none" role="status"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="recResults" class="d-none">
+        <h4 class="mb-3">🎯 Recommended Movies</h4>
+        <div id="recCards" class="row g-4"></div>
+    </div>
+    <div id="recEmpty" class="text-center py-5 text-muted">
+        <div class="placeholder-icon">🎥</div>
+        <h5>Results will appear here</h5>
+        <p>Choose a recommendation mode above to get started</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let movieInputCount = 1;
+const maxInputs = 3;
+
+document.getElementById('addMovieBtn').addEventListener('click', () => {
+    if (movieInputCount >= maxInputs) return;
+    movieInputCount++;
+    const div = document.createElement('div');
+    div.className = 'input-group mb-2 movie-input-row';
+    div.innerHTML = `
+        <span class="input-group-text">${movieInputCount}</span>
+        <input type="text" class="form-control movie-search" placeholder="Type or speak a movie name..." autocomplete="off">
+        <button class="btn btn-outline-secondary voice-btn" type="button" title="Record movie name by voice" onclick="startRecording(this, '${movieInputCount}')">
+            <i class="bi bi-mic-fill"></i>
+        </button>
+        <button class="btn btn-outline-danger remove-movie-btn" type="button"><i class="bi bi-x"></i></button>
+        <div class="autocomplete-dropdown"></div>
+    `;
+    div.querySelector('.remove-movie-btn').addEventListener('click', () => {
+        div.remove();
+        movieInputCount--;
+        updateInputNumbers();
+        if (movieInputCount < maxInputs) document.getElementById('addMovieBtn').classList.remove('d-none');
+    });
+    document.getElementById('movieInputs').insertBefore(div, document.getElementById('addMovieBtn'));
+    if (movieInputCount >= maxInputs) document.getElementById('addMovieBtn').classList.add('d-none');
+});
+
+function updateInputNumbers() {
+    document.querySelectorAll('.movie-input-row .input-group-text').forEach((el, i) => {
+        el.textContent = i + 1;
+    });
+}
+
+document.getElementById('searchByMovieBtn').addEventListener('click', async () => {
+    const inputs = document.querySelectorAll('.movie-search');
+    const names = Array.from(inputs).map(inp => inp.value.trim()).filter(n => n);
+    if (!names.length) { alert('Please enter at least one movie name.'); return; }
+
+    const loading = document.getElementById('movieLoading');
+    loading.classList.remove('d-none');
+    try {
+        const res = await fetch('/api/recommend/by-movies', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ movie_names: names })
+        });
+        const data = await res.json();
+        if (data.error) { alert(data.error); return; }
+        renderResults(data.recommendations);
+    } catch (e) { alert('Error: ' + e.message); }
+    finally { loading.classList.add('d-none'); }
+});
+
+document.getElementById('searchByUserBtn').addEventListener('click', async () => {
+    const uid = document.getElementById('userSelect').value;
+    if (!uid) { alert('Please select a user.'); return; }
+
+    const loading = document.getElementById('userLoading');
+    loading.classList.remove('d-none');
+    try {
+        const res = await fetch('/api/recommend/by-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: uid })
+        });
+        const data = await res.json();
+        if (data.error) { alert(data.error); return; }
+        renderResults(data.recommendations);
+    } catch (e) { alert('Error: ' + e.message); }
+    finally { loading.classList.add('d-none'); }
+});
+
+function renderResults(recs) {
+    document.getElementById('recEmpty').classList.add('d-none');
+    const results = document.getElementById('recResults');
+    results.classList.remove('d-none');
+    const cards = document.getElementById('recCards');
+    if (!recs.length) {
+        cards.innerHTML = '<div class="col-12 text-center text-muted">No recommendations found. Try different input.</div>';
+        return;
+    }
+    cards.innerHTML = recs.map(r => {
+        const ratingColor = r.rating >= 60 ? 'bg-success' : 'bg-danger';
+        const ratingIcon = r.rating >= 60 ? '🍅' : '💀';
+        const consensus = r.consensus ? `<p class="card-text small fst-italic text-muted mt-1">"${r.consensus.substring(0, 150)}${r.consensus.length > 150 ? '...' : ''}"</p>` : '';
+        const searchTitle = encodeURIComponent(r.title);
+        return `
+        <div class="col-md-6 col-lg-4">
+            <div class="card movie-card h-100" onclick="viewMovieDetail('${searchTitle}')" style="cursor:pointer; transition: transform 0.15s;">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">${r.title} <small class="text-muted" style="font-size:12px;">🔗</small></h5>
+                    <div class="mb-2">
+                        <span class="badge ${ratingColor}">${ratingIcon} ${r.rating}%</span>
+                        <span class="badge bg-secondary">${r.year}</span>
+                    </div>
+                    <p class="card-text small text-muted mb-1">${r.genres}</p>
+                    <p class="card-text small mb-1"><i class="bi bi-info-circle"></i> ${r.reason}</p>
+                    ${consensus}
+                    <div class="progress mt-auto" style="height: 6px;">
+                        <div class="progress-bar bg-success" style="width: ${r.similarity}%"></div>
+                    </div>
+                    <small class="text-muted">Match: ${r.similarity}%</small>
+                </div>
+            </div>
+        </div>
+    `}).join('');
+    results.scrollIntoView({ behavior: 'smooth' });
+
+    // Hover effects for clickable cards
+    cards.querySelectorAll('.movie-card').forEach(card => {
+        card.addEventListener('mouseenter', () => card.style.transform = 'translateY(-4px)');
+        card.addEventListener('mouseleave', () => card.style.transform = 'translateY(0)');
+    });
+}
+
+function viewMovieDetail(title) {
+    window.open('/movie?q=' + title, '_blank');
+}
+
+// Mode C: By Mood
+document.getElementById('searchByMoodBtn').addEventListener('click', async () => {
+    const mood = document.getElementById('moodInput').value.trim();
+    if (!mood) { alert('Please describe your mood.'); return; }
+
+    const loading = document.getElementById('moodLoading');
+    loading.classList.remove('d-none');
+    try {
+        const res = await fetch('/api/recommend/by-mood', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mood: mood })
+        });
+        const data = await res.json();
+        if (data.error) { alert(data.error); return; }
+        renderResults(data.recommendations);
+    } catch (e) { alert('Error: ' + e.message); }
+    finally { loading.classList.add('d-none'); }
+});
+
+document.querySelectorAll('.mood-badge').forEach(badge => {
+    badge.addEventListener('click', () => {
+        const mood = badge.dataset.mood;
+        const input = document.getElementById('moodInput');
+        input.value = input.value ? input.value + ', ' + mood : 'I feel ' + mood;
+        input.focus();
+    });
+});
+
+// ─── Critic selector ────────────────────────────────
+let allCritics = [];
+let selectedCriticId = null;
+
+function avatarColor(name) {
+  const colors = ['#e74c3c','#e67e22','#2ecc71','#3498db','#9b59b6','#1abc9c','#f39c12','#e91e63','#00bcd4','#ff5722'];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
+}
+
+function renderCriticList(filter = '') {
+  const dropdown = document.getElementById('criticDropdown');
+  const q = filter.toLowerCase();
+  const matches = allCritics.filter(c => c.toLowerCase().includes(q));
+  if (!matches.length) {
+    dropdown.innerHTML = '<div class="no-results">No critics found</div>';
+    return;
+  }
+  dropdown.innerHTML = matches.slice(0, 100).map(c => {
+    const initial = c.charAt(0).toUpperCase();
+    const color = avatarColor(c);
+    return `<div class="critic-item" onclick="selectCritic('${c.replace(/'/g, "\\'")}')">
+      <div class="avatar-circle" style="background:${color}">${initial}</div>
+      <span>${c}</span>
+    </div>`;
+  }).join('');
+}
+
+function showCriticDropdown() {
+  document.getElementById('criticDropdown').style.display = 'block';
+  renderCriticList(document.getElementById('criticSearch').value);
+}
+
+function filterCritics() {
+  showCriticDropdown();
+}
+
+function selectCritic(name) {
+  selectedCriticId = name;
+  document.getElementById('userSelect').value = name;
+  document.getElementById('selectedCriticName').textContent = name;
+  document.getElementById('selectedCritic').style.display = 'block';
+  document.getElementById('criticSearch').value = name;
+  document.getElementById('criticDropdown').style.display = 'none';
+}
+
+function clearCritic() {
+  selectedCriticId = null;
+  document.getElementById('userSelect').value = '';
+  document.getElementById('selectedCritic').style.display = 'none';
+  document.getElementById('criticSearch').value = '';
+  document.getElementById('criticDropdown').style.display = 'none';
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  const dropdown = document.getElementById('criticDropdown');
+  const search = document.getElementById('criticSearch');
+  if (dropdown && search && !search.contains(e.target) && !dropdown.contains(e.target)) {
+    dropdown.style.display = 'none';
+  }
+});
+
+// Load critics
+(async () => {
+  try {
+    const res = await fetch('/api/users/top');
+    const data = await res.json();
+    allCritics = data.users;
+    renderCriticList();
+  } catch(e) {}
+})();
+
+// ── Favourites support ──────────────────────────────────────
+const FAVS_KEY = 'tomato_mind_favourites';
+function getFavs() { try { return JSON.parse(localStorage.getItem(FAVS_KEY))||[]; } catch { return []; } }
+
+function refreshFavBar() {
+    const favs = getFavs();
+    const bar = document.getElementById('favBar');
+    const count = document.getElementById('favCount');
+    if (!favs.length) { bar.classList.add('d-none'); return; }
+    bar.classList.remove('d-none');
+    count.textContent = `(${favs.length} movie${favs.length>1?'s':''})`;
+}
+refreshFavBar();
+
+function showFavourites() {
+    const favs = getFavs();
+    const body = document.getElementById('favListBody');
+    if (!favs.length) { body.innerHTML = '<p class="text-muted text-center">No favourites yet.</p>'; }
+    else {
+        body.innerHTML = favs.map((f,i) => {
+            const rc = f.rating >= 60 ? 'success' : 'danger';
+            const re = f.rating >= 60 ? 'Fresh' : 'Rotten';
+            return `<div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                <div>
+                    <strong>${f.title}</strong> <small class="text-muted">${f.year||''}</small>
+                    <div class="small text-muted">${f.genres||''}</div>
+                </div>
+                <div>
+                    <span class="badge bg-${rc}">${f.rating}%</span>
+                    <button class="btn btn-sm btn-outline-danger ms-2" onclick="removeFav(${i})">Remove</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+    new bootstrap.Modal(document.getElementById('favListModal')).show();
+}
+
+function removeFav(idx) {
+    let favs = getFavs(); favs.splice(idx,1); localStorage.setItem(FAVS_KEY, JSON.stringify(favs));
+    showFavourites(); refreshFavBar();
+}
+
+async function recommendFromFavourites() {
+    const favs = getFavs();
+    if (!favs.length) { alert('No favourites yet. Add some movies from Movie Explorer first!'); return; }
+    const names = favs.slice(0, 10).map(f => f.title);
+    const loading = document.getElementById('movieLoading');
+    loading.classList.remove('d-none');
+    try {
+        const res = await fetch('/api/recommend/by-movies', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ movie_names: names })
+        });
+        const data = await res.json();
+        if (data.error) { alert(data.error); return; }
+        renderResults(data.recommendations);
+        // Switch to results view
+        document.querySelector('#tab-movies').click();
+    } catch(e) { alert('Error: '+e.message); }
+    finally { loading.classList.add('d-none'); }
+}
+
+// ── Voice Recording (shared) ──────────────────────────────
+let mediaRecorder = null;
+let audioChunks = [];
+let currentVoiceBtn = null;
+let currentTargetInputId = null;
+let voiceStream = null;
+
+async function startRecording(btn, inputIndex) {
+    // Already recording? Stop.
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+        return;
+    }
+
+    try {
+        voiceStream = await navigator.mediaDevices.getUserMedia({
+            audio: { channelCount: 1, sampleRate: 16000 }
+        });
+        mediaRecorder = new MediaRecorder(voiceStream);
+        audioChunks = [];
+        currentVoiceBtn = btn;
+        currentTargetInputId = inputIndex;
+
+        mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+            voiceStream.getTracks().forEach(t => t.stop());
+
+            // Process: decode WebM blob → AudioBuffer → 16kHz mono WAV PCM
+            setVoiceButtonState('processing');
+
+            try {
+                const webmBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                const arrayBuffer = await webmBlob.arrayBuffer();
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+                // Resample to 16kHz mono
+                const sampleRate = 16000;
+                const offlineCtx = new OfflineAudioContext(1, audioBuffer.duration * sampleRate, sampleRate);
+                const source = offlineCtx.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(offlineCtx.destination);
+                source.start();
+                const rendered = await offlineCtx.startRendering();
+
+                // Convert to WAV bytes (16-bit PCM)
+                const pcmData = rendered.getChannelData(0);
+                const wavBytes = encodeWAV(pcmData, sampleRate);
+
+                const res = await fetch('/api/transcribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/octet-stream' },
+                    body: wavBytes,
+                });
+                const data = await res.json();
+                if (data.error) {
+                    alert('Voice recognition failed: ' + data.error);
+                    setVoiceButtonState('idle');
+                    return;
+                }
+
+                if (data.text) {
+                    const inputs = document.querySelectorAll('.movie-search');
+                    const idx = parseInt(currentTargetInputId) - 1;
+                    if (inputs[idx]) {
+                        inputs[idx].value = data.text;
+                        inputs[idx].dispatchEvent(new Event('input'));
+                    }
+                }
+            } catch (e) {
+                alert('Voice processing error: ' + e.message);
+            }
+            setVoiceButtonState('idle');
+            audioCtx && audioCtx.close();
+        };
+
+        mediaRecorder.start();
+        setVoiceButtonState('recording');
+        setTimeout(() => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+        }, 8000);
+
+    } catch (e) {
+        alert('Microphone access denied. Please allow microphone permissions.');
+        setVoiceButtonState('idle');
+    }
+}
+
+// ── WAV encoder (pure JS, no ffmpeg needed) ────────────────
+function encodeWAV(samples, sampleRate) {
+    const buffer = new ArrayBuffer(44 + samples.length * 2);
+    const view = new DataView(buffer);
+    function writeString(offset, str) {
+        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+    }
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + samples.length * 2, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);       // chunk size
+    view.setUint16(20, 1, true);        // PCM
+    view.setUint16(22, 1, true);        // mono
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true); // byte rate
+    view.setUint16(32, 2, true);        // block align
+    view.setUint16(34, 16, true);       // bits per sample
+    writeString(36, 'data');
+    view.setUint32(40, samples.length * 2, true);
+    for (let i = 0; i < samples.length; i++) {
+        const s = Math.max(-1, Math.min(1, samples[i]));
+        view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+    return new Uint8Array(buffer);
+}
+
+function setVoiceButtonState(state) {
+    const icon = currentVoiceBtn ? currentVoiceBtn.querySelector('i') : null;
+    // Reset all voice buttons
+    document.querySelectorAll('.voice-btn').forEach(b => {
+        b.classList.remove('btn-danger', 'btn-warning');
+        b.classList.add('btn-outline-secondary');
+        b.querySelector('i').className = 'bi bi-mic-fill';
+        b.disabled = false;
+    });
+
+    if (state === 'recording' && currentVoiceBtn) {
+        currentVoiceBtn.classList.remove('btn-outline-secondary');
+        currentVoiceBtn.classList.add('btn-danger');
+        if (icon) icon.className = 'bi bi-mic-fill';
+        currentVoiceBtn.style.animation = 'pulse 1s infinite';
+    } else if (state === 'processing' && currentVoiceBtn) {
+        currentVoiceBtn.classList.remove('btn-danger', 'btn-outline-secondary');
+        currentVoiceBtn.classList.add('btn-warning');
+        if (icon) icon.className = 'bi bi-hourglass-split';
+        currentVoiceBtn.style.animation = 'none';
+        currentVoiceBtn.disabled = true;
+    } else {
+        if (currentVoiceBtn) currentVoiceBtn.style.animation = 'none';
+    }
+}
+</script>
+{% endblock %}
